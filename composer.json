@@ -1,5 +1,30 @@
 {
     "name": "weijiajia/province-city-china",
+    "description": "中国省市区数据包，支持按拼音和首字母查询",
+    "type": "library",
+    "keywords": [
+        "china",
+        "province",
+        "city",
+        "area",
+        "pinyin",
+        "administrative-divisions"
+    ],
+    "homepage": "https://github.com/weijiajia/province-city-china",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Wei Jiajia",
+            "email": "example@example.com"
+        }
+    ],
+    "require": {
+        "php": "^8.0",
+        "overtrue/pinyin": "^5.3"
+    },
+    "require-dev": {
+        "pestphp/pest": "^3.8"
+    },
     "autoload": {
         "psr-4": {
             "Weijiajia\\ProvinceCityChina\\": "src/"
@@ -10,15 +35,17 @@
             "Tests\\": "tests/"
         }
     },
-    "require": {
-        "overtrue/pinyin": "^5.3"
-    },
-    "require-dev": {
-        "pestphp/pest": "^3.8"
+    "scripts": {
+        "test": "pest",
+        "test-coverage": "pest --coverage",
+        "format": "pint"
     },
     "config": {
+        "sort-packages": true,
         "allow-plugins": {
             "pestphp/pest-plugin": true
         }
-    }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }
