@@ -2,91 +2,79 @@
 
 namespace Weijiajia\ProvinceCityChina;
 
+use Illuminate\Support\Collection;
+use Weijiajia\ProvinceCityChina\Entities\Province;
+
 class Provinces
 {
+    use Makeable;
+
+    protected ?Collection $provinces = null;
+
+    /**
+     * 构造函数
+     *
+     * @param string $path 数据文件路径
+     */
+    public function __construct(
+        protected string $path = __DIR__ . '/Resources/data/divisions.php'
+    ) {
+
+        if (!file_exists($this->path)) {
+            throw new \Exception("Data file not found at path: {$this->path}");
+        }
+    }
+
+
     /**
      * 获取所有省份数据
      *
-     * @return array 省份代码和信息的关联数组
+     * @return Collection 省份代码和信息的关联数组或Collection对象
      */
-    public static function getProvinces()
+    public function getProvinces(): Collection
     {
-        $data = require __DIR__ . '/Resources/data/divisions.php';
-        return $data['provinces'];
-    }
-    
-    /**
-     * 获取所有省份名称
-     *
-     * @return array 省份代码和名称的关联数组
-     */
-    public static function getNames(): array
-    {
-        $provinces = self::getProvinces();
-        $names = [];
-        
-        foreach ($provinces as $code => $info) {
-            $names[$code] = $info['name'];
+        if ($this->provinces === null) {
+
+            $data = require $this->path;
+
+            $this->provinces = collect($data['provinces'])->map(fn(array $info, string $code) => Province::fromArray((string) $code, $info));
         }
-        
-        return $names;
+
+        return $this->provinces;
     }
-    
+
     /**
-     * 根据省份代码获取省份名称
+     * 根据省份代码获取省份实例
      *
      * @param string $code 省份代码
-     * @return string|null 省份名称，不存在时返回null
+     * @return Province|null 省份实例，不存在时返回null
      */
-    public static function getName($code)
+    public function getProvinceByCode(string $code): ?Province
     {
-        $provinces = self::getProvinces();
-        return isset($provinces[$code]) ? $provinces[$code]['name'] : null;
+        return $this->getProvinces()->first(fn(Province $province) => $province->getCode() === $code);
     }
-    
+
     /**
-     * 根据省份名称获取省份代码
+     * 根据省份名称获取省份实例
      *
      * @param string $name 省份名称
-     * @return string|null 省份代码，不存在时返回null
+     * @return Province|null 省份实例，不存在时返回null
      */
-    public static function getCode($name): ?string
+    public function getProvinceByName(string $name): ?Province
     {
-        $provinces = self::getProvinces();
-        foreach ($provinces as $code => $info) {
-            if ($info['name'] === $name) {
-                return (string)$code;
-            }
-        }
-        return null;
+        return $this->getProvinces()->first(fn(Province $province) => $province->getName() === $name);
     }
-    
+
+
     /**
      * 根据拼音搜索省份
      *
      * @param string $pinyin 拼音字符串
-     * @param bool $fuzzy 是否模糊匹配，默认为true
-     * @return array 匹配的省份数组
+     * @return Collection 匹配的省份数组或Collection对象
      */
-    public static function searchByPinyin($pinyin, $fuzzy = true): array
+    public function getProvincesByPinyin(string $pinyin): Collection
     {
-        $pinyin = strtolower($pinyin);
-        $provinces = self::getProvinces();
-        $result = [];
-        
-        foreach ($provinces as $code => $info) {
-            // 如果是模糊匹配，则使用strpos，否则使用全等比较
-            if ($fuzzy) {
-                if (strpos(strtolower($info['pinyin']), $pinyin) !== false) {
-                    $result[$code] = $info;
-                }
-            } else {
-                if (strtolower($info['pinyin']) === $pinyin) {
-                    $result[$code] = $info;
-                }
-            }
-        }
-        
-        return $result;
+        return $this->getProvinces()
+            ->filter(fn(Province $province) => str_contains(haystack: strtolower($province->getPinyin()), needle: strtolower($pinyin)));
     }
 }

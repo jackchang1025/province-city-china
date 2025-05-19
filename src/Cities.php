@@ -2,100 +2,81 @@
 
 namespace Weijiajia\ProvinceCityChina;
 
+use Illuminate\Support\Collection;
+use Weijiajia\ProvinceCityChina\Entities\City;
+
 class Cities
 {
+    use Makeable;
+    protected ?Collection $allCitiesCollection = null;
+
+    /**
+     * 构造函数
+     *
+     * @param string $path 数据文件路径
+     * @throws \Exception 如果数据文件不存在
+     */
+    public function __construct(
+        protected string $path = __DIR__ . '/Resources/data/divisions.php'
+    ) {
+        if (!file_exists($this->path)) {
+            throw new \Exception("Data file not found at path: {$this->path}");
+        }
+    }
+
     /**
      * 获取所有城市数据
      *
-     * @return array 城市代码和信息的关联数组
+     * @return Collection 城市代码和信息的Collection对象
      */
-    public static function getCities(): array
+    public function getCities(): Collection
     {
-        $data = require __DIR__ . '/Resources/data/divisions.php';
-        return $data['cities'];
-    }
-    
-    /**
-     * 获取所有城市名称
-     *
-     * @return array 城市代码和名称的关联数组
-     */
-    public static function getNames(): array
-    {
-        $cities = self::getCities();
-        $names = [];
-        
-        foreach ($cities as $code => $info) {
-            $names[$code] = $info['name'];
+        if ($this->allCitiesCollection === null) {
+            $data = require $this->path;
+            $this->allCitiesCollection = collect($data['cities'] ?? [])
+                ->map(fn($info, $code) => City::fromArray((string)$code, $info));
         }
-        
-        return $names;
+        return $this->allCitiesCollection;
     }
-    
+
     /**
-     * 根据城市代码获取城市名称
+     * 根据城市代码获取城市实例
      *
      * @param string $code 城市代码
-     * @return string|null 城市名称，不存在时返回null
+     * @return City|null 城市实例，不存在时返回null
      */
-    public static function getName(string $code): ?string
+    public function getCityByCode(string $code): ?City
     {
-        $cities = self::getCities();
-        return isset($cities[$code]) ? $cities[$code]['name'] : null;
+        return $this->getCities()->first(fn(City $city) => $city->getCode() === $code);
     }
-    
+
     /**
-     * 根据省份代码获取城市列表
+     * 根据省份代码获取该省份所有城市
      *
      * @param string $provinceCode 省份代码
-     * @return array 该省份下的城市代码和信息的关联数组
+     * @return Collection 城市代码和信息的Collection对象
      */
-    public static function getByProvinceCode(string $provinceCode): array
+    public function getCitiesByProvinceCode(string $provinceCode): Collection
     {
-        $cities = self::getCities();
-        $result = [];
-        
-        foreach ($cities as $code => $info) {
-            if ($info['province_code'] === $provinceCode) {
-                $result[$code] = $info;
-            }
-        }
-        
-        return $result;
+        return $this->getCities()->filter(fn(City $city) => $city->getProvinceCode() === $provinceCode);
     }
-    
+
     /**
      * 根据拼音搜索城市
      *
      * @param string $pinyin 拼音字符串
      * @param string|null $provinceCode 可选的省份代码，用于限制搜索范围
-     * @param bool $fuzzy 是否模糊匹配，默认为true
-     * @return array 匹配的城市数组
+     * @return Collection 匹配的城市Collection对象
      */
-    public static function searchByPinyin(string $pinyin, ?string $provinceCode = null, bool $fuzzy = true): array
+    public function getCitiesByPinyin(string $pinyin, ?string $provinceCode = null): Collection
     {
-        $pinyin = strtolower($pinyin);
-        $cities = self::getCities();
-        $result = [];
-        
-        foreach ($cities as $code => $info) {
-            if ($provinceCode !== null && $info['province_code'] !== $provinceCode) {
-                continue;
-            }
-            
-            // 如果是模糊匹配，则使用strpos，否则使用全等比较
-            if ($fuzzy) {
-                if (strpos(strtolower($info['pinyin']), $pinyin) !== false) {
-                    $result[$code] = $info;
+        $pinyinLower = strtolower($pinyin);
+        return $this->getCities()
+            ->filter(function (City $city) use ($pinyinLower, $provinceCode) {
+                if ($provinceCode !== null && $city->getProvinceCode() !== $provinceCode) {
+                    return false;
                 }
-            } else {
-                if (strtolower($info['pinyin']) === $pinyin) {
-                    $result[$code] = $info;
-                }
-            }
-        }
-        
-        return $result;
+                return str_contains(haystack: strtolower($city->getPinyin()), needle: $pinyinLower);
+            });
     }
-
 }
